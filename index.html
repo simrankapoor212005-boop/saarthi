@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Saathi — Classroom Voice Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   SAATHI — Voice AI classroom co-pilot for Haryana govt schools
+   Single-file prototype. Built for the CDF Round 2 assignment.
+   Theme: warm chalk-on-slate. Calm Mode = autism-friendly defaults.
+   ============================================================ */
+
+:root{
+  /* --- Default (warm classroom) palette --- */
+  --board:#1f3d3a;          /* slate-green blackboard */
+  --board-edge:#15302d;
+  --chalk:#f6f0e2;          /* chalk / cream */
+  --chalk-soft:#d9d2bf;
+  --paper:#f4eee0;          /* app background */
+  --ink:#33352f;            /* dark text on paper */
+  --marigold:#f2b544;       /* Saathi glow + highlight */
+  --leaf:#7fb069;           /* green accent */
+  --sky:#5c7fa3;            /* muted indigo/blue */
+  --clay:#d97a5b;           /* warm terracotta */
+  --card:#fffaf0;
+  --line:#e3dac4;
+
+  --mic:#d97a5b;            /* the big talk button */
+  --mic-live:#c75c43;
+
+  --radius:22px;
+  --shadow:0 10px 30px rgba(31,61,58,.16);
+  --motion:1;               /* 1 = animate, 0 = calm */
+  --fontscale:1;
+  --tap:62px;               /* min touch target */
+
+  --display:'Baloo 2', system-ui, sans-serif;
+  --body:'Mukta', system-ui, sans-serif;
+}
+
+/* Calm Mode: muted, low-contrast, no bright colors. Autism-friendly. */
+body.calm{
+  --board:#3a4a47;
+  --board-edge:#33413e;
+  --chalk:#edeae3;
+  --chalk-soft:#c9c4ba;
+  --paper:#edeae3;
+  --ink:#3a3a38;
+  --marigold:#cdb98a;
+  --leaf:#9bb3a4;
+  --sky:#8da3b8;
+  --clay:#bb9384;
+  --card:#f3f1ea;
+  --line:#dcd7cc;
+  --mic:#8da3b8;
+  --mic-live:#7c93a8;
+  --shadow:0 6px 18px rgba(58,74,71,.12);
+  --motion:0;
+}
+body.bigtext{ --fontscale:1.22; }
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--body);
+  background:
+     radial-gradient(1200px 700px at 80% -10%, rgba(242,181,68,.10), transparent 60%),
+     var(--paper);
+  color:var(--ink);
+  font-size:calc(17px * var(--fontscale));
+  -webkit-text-size-adjust:100%;
+}
+@media (prefers-reduced-motion: reduce){ :root{ --motion:0; } }
+
+.wrap{max-width:1080px;margin:0 auto;padding:14px 16px 28px;min-height:100%;display:flex;flex-direction:column;gap:14px}
+
+/* ---------- Top bar ---------- */
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand .diya{width:40px;height:40px}
+.brand h1{font-family:var(--display);font-weight:800;font-size:calc(26px*var(--fontscale));margin:0;letter-spacing:.3px;color:var(--board)}
+.brand small{display:block;font-weight:500;color:var(--sky);font-size:calc(12.5px*var(--fontscale));margin-top:-3px}
+
+.segment{display:flex;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:4px;gap:2px}
+.segment button{
+  font-family:var(--display);font-weight:600;border:0;background:transparent;color:var(--ink);
+  padding:8px 14px;border-radius:999px;cursor:pointer;font-size:calc(14px*var(--fontscale));min-height:40px
+}
+.segment button[aria-pressed="true"]{background:var(--board);color:var(--chalk)}
+.iconbtn{
+  width:46px;height:46px;border-radius:14px;border:2px solid var(--line);background:var(--card);
+  cursor:pointer;font-size:20px;display:grid;place-items:center
+}
+.iconbtn:focus-visible,.segment button:focus-visible,button:focus-visible,.chip:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
+
+/* ---------- The smart board (HERO) ---------- */
+.board{
+  position:relative;background:
+     repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 2px, transparent 2px 4px),
+     linear-gradient(180deg,var(--board),var(--board-edge));
+  border-radius:var(--radius);
+  border:10px solid #6b4a2e;                  /* wooden frame */
+  box-shadow:var(--shadow), inset 0 0 60px rgba(0,0,0,.25);
+  color:var(--chalk);
+  padding:26px 26px 22px;
+  min-height:330px;display:flex;flex-direction:column;gap:14px;
+}
+body.calm .board{border-color:#7d756a}
+.board .tray{position:absolute;left:18px;right:18px;bottom:-14px;height:14px;background:#6b4a2e;border-radius:0 0 10px 10px;box-shadow:0 6px 10px rgba(0,0,0,.18)}
+body.calm .board .tray{background:#7d756a}
+
+.board-head{display:flex;align-items:center;gap:14px}
+.board-emoji{font-size:64px;line-height:1;filter:drop-shadow(0 3px 6px rgba(0,0,0,.3))}
+.board-title{font-family:var(--display);font-weight:700;font-size:calc(30px*var(--fontscale));margin:0;text-shadow:0 1px 0 rgba(0,0,0,.25)}
+.chalk-rule{height:3px;background:repeating-linear-gradient(90deg,var(--chalk-soft) 0 14px, transparent 14px 22px);opacity:.6;border-radius:3px}
+
+.points{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.points li{font-size:calc(20px*var(--fontscale));display:flex;gap:10px;align-items:flex-start;line-height:1.35}
+.points li::before{content:"✦";color:var(--marigold);font-size:.9em;margin-top:.18em}
+
+.board-foot{margin-top:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.board-foot button{
+  font-family:var(--display);font-weight:600;border:2px solid rgba(246,240,226,.45);background:rgba(246,240,226,.08);
+  color:var(--chalk);border-radius:999px;padding:9px 14px;cursor:pointer;font-size:calc(13.5px*var(--fontscale));min-height:42px;display:flex;gap:7px;align-items:center
+}
+.alt-text{font-size:calc(13.5px*var(--fontscale));color:var(--chalk-soft);font-style:italic;display:none;margin-top:2px}
+body.alton .alt-text{display:block}
+
+/* idle hint state */
+.board.idle .board-head .board-emoji{font-size:60px}
+.idle-hint{color:var(--chalk-soft);font-size:calc(17px*var(--fontscale));line-height:1.5}
+.idle-hint b{color:var(--chalk)}
+
+/* ---------- Quiz ---------- */
+.quiz-q{font-family:var(--display);font-weight:700;font-size:calc(26px*var(--fontscale));margin:0}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.choices{grid-template-columns:1fr}}
+.choice{
+  font-family:var(--display);font-weight:600;text-align:left;cursor:pointer;color:var(--chalk);
+  background:rgba(246,240,226,.07);border:2px solid rgba(246,240,226,.4);border-radius:16px;
+  padding:16px;font-size:calc(19px*var(--fontscale));min-height:var(--tap);display:flex;gap:12px;align-items:center
+}
+.choice .key{width:34px;height:34px;flex:0 0 34px;border-radius:50%;display:grid;place-items:center;background:var(--marigold);color:#3a2a08;font-weight:800}
+.choice.correct{background:rgba(127,176,105,.28);border-color:var(--leaf)}
+.choice.wrong{background:rgba(217,122,91,.25);border-color:var(--clay)}
+
+/* ---------- Caption / subtitle bar (always-on accessibility) ---------- */
+.captions{
+  background:var(--board);color:var(--chalk);border-radius:16px;padding:14px 18px;
+  display:flex;gap:12px;align-items:center;min-height:58px;border:2px solid var(--board-edge)
+}
+.captions .cc{font-family:var(--display);font-weight:700;font-size:11px;letter-spacing:1px;background:var(--chalk);color:var(--board);padding:3px 7px;border-radius:6px;flex:0 0 auto}
+.captions .cc-text{font-size:calc(18px*var(--fontscale));line-height:1.4}
+body.subsoff .captions{display:none}
+
+/* ---------- Clarification chips ---------- */
+.clarify{background:var(--card);border:2px dashed var(--clay);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.clarify p{margin:0 0 12px;font-family:var(--display);font-weight:700;font-size:calc(20px*var(--fontscale));color:var(--ink)}
+.chiprow{display:flex;flex-wrap:wrap;gap:10px}
+.chip{
+  font-family:var(--display);font-weight:600;cursor:pointer;background:var(--paper);border:2px solid var(--line);
+  border-radius:999px;padding:12px 16px;font-size:calc(16px*var(--fontscale));min-height:var(--tap);display:flex;gap:9px;align-items:center
+}
+.chip .e{font-size:1.3em}
+.chip:hover{border-color:var(--clay)}
+
+/* ---------- Bottom control dock ---------- */
+.dock{display:flex;align-items:center;gap:16px;background:var(--card);border:2px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);flex-wrap:wrap}
+.saathi-mini{width:64px;height:64px;flex:0 0 auto}
+.mic{
+  --c:var(--mic);
+  flex:0 0 auto;width:auto;min-width:200px;height:74px;border:0;border-radius:999px;cursor:pointer;
+  background:var(--c);color:#fff;font-family:var(--display);font-weight:800;font-size:calc(21px*var(--fontscale));
+  display:flex;gap:12px;align-items:center;justify-content:center;padding:0 26px;box-shadow:0 8px 0 rgba(0,0,0,.12)
+}
+.mic .micdot{width:18px;height:18px;border-radius:50%;background:#fff;opacity:.95}
+.mic.listening{--c:var(--mic-live)}
+.mic.listening .micdot{animation:pulse calc(1.1s/var(--motion,1)) ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.7);opacity:1}}
+.dock .modes{margin-left:auto;display:flex;gap:8px}
+.modepill{font-family:var(--display);font-weight:600;border:2px solid var(--line);background:var(--paper);border-radius:14px;padding:10px 14px;cursor:pointer;font-size:calc(14.5px*var(--fontscale));min-height:48px}
+.modepill[aria-pressed="true"]{background:var(--leaf);color:#143018;border-color:var(--leaf)}
+.typebtn{font-family:var(--display);font-weight:600;border:2px dashed var(--line);background:transparent;border-radius:14px;padding:10px 14px;cursor:pointer;font-size:calc(14px*var(--fontscale));min-height:48px}
+#hfToggle{border-style:solid}
+#hfToggle[aria-pressed="true"]{background:var(--leaf);color:#143018;border-color:var(--leaf)}
+
+/* listening transcript ghost */
+.heard{min-height:22px;font-size:calc(14.5px*var(--fontscale));color:var(--sky);font-style:italic}
+
+/* ---------- Type panel ---------- */
+.typewrap{display:none;gap:10px;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px}
+.typewrap.show{display:flex}
+.typewrap input{flex:1;border:2px solid var(--line);border-radius:12px;padding:14px;font-family:var(--body);font-size:calc(17px*var(--fontscale));background:var(--paper);color:var(--ink);min-height:var(--tap)}
+.typewrap button{font-family:var(--display);font-weight:700;border:0;background:var(--board);color:var(--chalk);border-radius:12px;padding:0 20px;cursor:pointer;min-height:var(--tap);font-size:calc(16px*var(--fontscale))}
+
+/* ---------- Accessibility sheet ---------- */
+.sheet-back{position:fixed;inset:0;background:rgba(31,61,58,.45);display:none;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+.sheet-back.show{display:flex}
+.sheet{background:var(--paper);width:100%;max-width:560px;border-radius:24px 24px 0 0;padding:20px 20px 28px;box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+.sheet h2{font-family:var(--display);margin:.1em 0 .2em;color:var(--board);font-size:calc(22px*var(--fontscale))}
+.sheet .sub{color:var(--sky);margin:0 0 14px;font-size:calc(13.5px*var(--fontscale))}
+.toggle{display:flex;align-items:center;gap:14px;padding:12px;border:2px solid var(--line);border-radius:16px;background:var(--card);margin-bottom:10px;cursor:pointer}
+.toggle .tt{flex:1}
+.toggle .tt b{font-family:var(--display);font-size:calc(17px*var(--fontscale));display:block}
+.toggle .tt span{font-size:calc(13px*var(--fontscale));color:var(--ink);opacity:.7}
+.switch{width:54px;height:32px;border-radius:999px;background:var(--line);position:relative;flex:0 0 auto;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.toggle[aria-pressed="true"] .switch{background:var(--leaf)}
+.toggle[aria-pressed="true"] .switch::after{left:25px}
+.sheet .done{width:100%;margin-top:8px;font-family:var(--display);font-weight:700;border:0;background:var(--board);color:var(--chalk);border-radius:16px;padding:16px;font-size:calc(17px*var(--fontscale));cursor:pointer}
+
+/* status badge */
+.status{display:inline-flex;align-items:center;gap:7px;font-size:calc(12px*var(--fontscale));color:var(--sky);font-weight:600}
+.status .dot{width:9px;height:9px;border-radius:50%;background:var(--leaf)}
+.status.demo .dot{background:var(--marigold)}
+
+.foothint{text-align:center;color:var(--sky);font-size:calc(12.5px*var(--fontscale));opacity:.85}
+
+/* diya mascot animation */
+.diya .flame,.saathi-mini .flame{transform-origin:center bottom;animation:flick calc(2.4s/var(--motion,1)) ease-in-out infinite}
+@keyframes flick{0%,100%{transform:scale(1) rotate(-2deg)}50%{transform:scale(1.06) rotate(2deg)}}
+.saathi-mini.think .flame{animation-duration:calc(.7s/var(--motion,1))}
+.saathi-mini.speak .flame{animation-duration:calc(.45s/var(--motion,1))}
+body.calm .diya .flame,body.calm .saathi-mini .flame{animation:none}
+.glow{animation:glow calc(3s/var(--motion,1)) ease-in-out infinite}
+@keyframes glow{0%,100%{opacity:.35}50%{opacity:.7}}
+body.calm .glow{animation:none;opacity:.3}
+
+/* mic-fix banner */
+.micfix{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--card);border:2px solid var(--clay);border-radius:16px;padding:12px 16px;box-shadow:var(--shadow)}
+.micfix span{font-size:calc(14px*var(--fontscale));color:var(--ink);flex:1;min-width:180px}
+.micfix button{font-family:var(--display);font-weight:700;border:0;background:var(--clay);color:#fff;border-radius:12px;padding:12px 16px;cursor:pointer;font-size:calc(14.5px*var(--fontscale));min-height:var(--tap)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <!-- Saathi the diya (lamp = knowledge), the signature mascot -->
+      <svg class="diya" viewBox="0 0 64 64" aria-hidden="true">
+        <ellipse class="glow" cx="32" cy="20" rx="20" ry="16" fill="var(--marigold)"/>
+        <g class="flame"><path d="M32 8c4 6 7 9 7 14a7 7 0 1 1-14 0c0-3 2-5 3-7 1 3 4 3 4-7z" fill="var(--marigold)"/></g>
+        <path d="M14 40c2 8 9 12 18 12s16-4 18-12c-6 3-12 4-18 4s-12-1-18-4z" fill="#b9742c"/>
+        <path d="M12 39h40c-1 4-3 6-6 7H18c-3-1-5-3-6-7z" fill="#8c531c"/>
+      </svg>
+      <div>
+        <h1>Saathi</h1>
+        <small>आपका क्लासरूम साथी · classroom companion</small>
+      </div>
+    </div>
+
+    <div class="segment" role="group" aria-label="Language">
+      <button data-lang="hinglish" aria-pressed="true">Hinglish</button>
+      <button data-lang="hindi" aria-pressed="false">हिंदी</button>
+      <button data-lang="english" aria-pressed="false">English</button>
+    </div>
+    <button class="iconbtn" id="a11yBtn" aria-label="Accessibility settings" title="Accessibility / सुलभता">♿</button>
+  </header>
+
+  <!-- THE SMART BOARD -->
+  <main class="board idle" id="board" aria-live="polite">
+    <div class="board-head">
+      <div class="board-emoji" id="bEmoji">🌟</div>
+      <h2 class="board-title" id="bTitle">Namaste! Main Saathi hoon.</h2>
+    </div>
+    <div class="chalk-rule"></div>
+    <div id="bBody">
+      <p class="idle-hint" id="idleHint">
+        Press the big <b>BOLO 🎤</b> button and say a topic, like
+        <b>“photosynthesis samjhao”</b> or <b>“water cycle”</b>.<br>
+        I will explain it simply and draw it here on the board for the whole class.
+      </p>
+    </div>
+    <div class="board-foot">
+      <button id="describeBtn" title="Listen to the picture">🔊 <span id="describeLbl">Picture suno</span></button>
+      <button id="repeatBtn" title="Say it again">🔁 <span id="repeatLbl">Phir se</span></button>
+      <div class="alt-text" id="altText"></div>
+    </div>
+    <div class="tray"></div>
+  </main>
+
+  <!-- CLARIFICATION (hidden until needed) -->
+  <section class="clarify" id="clarify" style="display:none">
+    <p id="clarifyQ"></p>
+    <div class="chiprow" id="clarifyChips"></div>
+  </section>
+
+  <!-- CAPTION BAR (subtitles, always on by default) -->
+  <section class="captions" id="captions" aria-hidden="false">
+    <span class="cc">CC</span>
+    <span class="cc-text" id="ccText">Subtitles on — Saathi ki har baat yahan dikhegi.</span>
+  </section>
+
+  <!-- MIC-FIX BANNER (shown only when the mic is blocked by the preview sandbox) -->
+  <section class="micfix" id="micfix" style="display:none">
+    <span id="micfixMsg">To use the microphone, open Saathi in its own window.</span>
+    <button id="openWin">▶ Open in its own window (for voice)</button>
+  </section>
+
+  <!-- TYPE FALLBACK -->
+  <section class="typewrap" id="typewrap">
+    <input id="typeInput" placeholder="Type a topic… (e.g. gravity, जल चक्र)" aria-label="Type a topic"/>
+    <button id="typeSend">Jao →</button>
+  </section>
+
+  <!-- CONTROL DOCK -->
+  <section class="dock">
+    <svg class="saathi-mini" id="mascot" viewBox="0 0 64 64" aria-hidden="true">
+      <ellipse class="glow" cx="32" cy="22" rx="18" ry="14" fill="var(--marigold)"/>
+      <g class="flame"><path d="M32 10c3.5 5.5 6 8 6 12.5a6 6 0 1 1-12 0c0-2.6 1.6-4.4 2.6-6 1 2.6 3.4 2.6 3.4-6.5z" fill="var(--marigold)"/></g>
+      <path d="M16 40c2 7 8 11 16 11s14-4 16-11c-5 3-11 4-16 4s-11-1-16-4z" fill="#b9742c"/>
+      <path d="M14 39h36c-1 4-3 5.5-5.5 6.5H19.5C17 44.5 15 43 14 39z" fill="#8c531c"/>
+    </svg>
+
+    <button class="mic" id="mic">
+      <span class="micdot"></span><span id="micLabel">BOLO</span>
+    </button>
+
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="heard" id="heard"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="typebtn" id="hfToggle" aria-pressed="true" title="Hands-free wake-word mode">🎙️ <span id="hfLbl">Hands-free</span></button>
+        <button class="typebtn" id="typeToggle">⌨ Type karein</button>
+      </div>
+    </div>
+
+    <div class="modes" role="group" aria-label="Mode">
+      <button class="modepill" data-mode="explain" aria-pressed="true">📖 <span id="m1">Samjhao</span></button>
+      <button class="modepill" data-mode="quiz" aria-pressed="false">🎯 <span id="m2">Quiz</span></button>
+      <button class="modepill" id="demoConfused" data-mode="confused" aria-pressed="false">🙋 <span id="m3">Confused kid</span></button>
+    </div>
+  </section>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <span class="status" id="status"><span class="dot"></span><span id="statusLbl">Checking AI…</span></span>
+    <span class="foothint">Prototype for Connecting Dreams Foundation · works on the classroom smart board</span>
+  </div>
+</div>
+
+<!-- ACCESSIBILITY SHEET -->
+<div class="sheet-back" id="sheetBack">
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Accessibility settings">
+    <h2 id="a11yTitle">Sabke liye / For everyone ♿</h2>
+    <p class="sub" id="a11ySub">Har bachche ke liye Saathi ko set karein.</p>
+
+    <button class="toggle" id="tgCalm" aria-pressed="false">
+      <div class="tt"><b>Calm Mode 🌿</b><span>Soft colours, no flashing, gentle sound. For sensitive & autistic learners.</span></div>
+      <span class="switch"></span>
+    </button>
+    <button class="toggle" id="tgSubs" aria-pressed="true">
+      <div class="tt"><b>Subtitles / Captions 💬</b><span>Show every word Saathi says, in big text.</span></div>
+      <span class="switch"></span>
+    </button>
+    <button class="toggle" id="tgAlt" aria-pressed="false">
+      <div class="tt"><b>Always show picture text 🖼️</b><span>Written description under every picture (ALT text).</span></div>
+      <span class="switch"></span>
+    </button>
+    <button class="toggle" id="tgBig" aria-pressed="false">
+      <div class="tt"><b>Bigger text 🔠</b><span>Larger letters for low-vision learners.</span></div>
+      <span class="switch"></span>
+    </button>
+
+    <button class="done" id="sheetDone">Theek hai ✓</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  lang: 'hinglish',     // hinglish | hindi | english
+  mode: 'explain',      // explain | quiz
+  aiLive: false,        // true if Anthropic API reachable
+  current: null,        // last rendered payload (for repeat / describe)
+  speaking: false
+};
+
+/* ---------- UI strings per language ---------- */
+const UI = {
+  hinglish:{ mic:'BOLO', listening:'Sun raha hoon…', describe:'Picture suno', repeat:'Phir se',
+    m1:'Samjhao', m2:'Quiz', m3:'Confused kid', type:'⌨ Type karein', typeph:'Topic likho… (jaise gravity, jal chakra)',
+    send:'Jao →', greet:'Namaste! Main Saathi hoon.',
+    idle:'Bade <b>BOLO 🎤</b> button ko dabao aur koi topic bolo — jaise <b>“photosynthesis samjhao”</b> ya <b>“water cycle”</b>.<br>Main use aasaan tarah se samjhaunga aur board pe bana ke dikhaunga.',
+    cc:'Subtitles on — Saathi ki har baat yahan dikhegi.', thinking:'Soch raha hoon…',
+    a11yT:'Sabke liye ♿', a11yS:'Har bachche ke liye Saathi ko set karein.', done:'Theek hai ✓' },
+  hindi:{ mic:'बोलो', listening:'सुन रहा हूँ…', describe:'चित्र सुनो', repeat:'फिर से',
+    m1:'समझाओ', m2:'क्विज़', m3:'उलझा बच्चा', type:'⌨ टाइप करें', typeph:'विषय लिखो… (जैसे गुरुत्वाकर्षण, जल चक्र)',
+    send:'जाओ →', greet:'नमस्ते! मैं साथी हूँ।',
+    idle:'बड़े <b>बोलो 🎤</b> बटन को दबाओ और कोई विषय बोलो — जैसे <b>“प्रकाश संश्लेषण समझाओ”</b> या <b>“जल चक्र”</b>।<br>मैं उसे आसान तरीके से समझाऊँगा और बोर्ड पर बनाकर दिखाऊँगा।',
+    cc:'सबटाइटल चालू — साथी की हर बात यहाँ दिखेगी।', thinking:'सोच रहा हूँ…',
+    a11yT:'सबके लिए ♿', a11yS:'हर बच्चे के लिए साथी को सेट करें।', done:'ठीक है ✓' },
+  english:{ mic:'TALK', listening:'Listening…', describe:'Hear picture', repeat:'Again',
+    m1:'Explain', m2:'Quiz', m3:'Confused kid', type:'⌨ Type instead', typeph:'Type a topic… (e.g. gravity, water cycle)',
+    send:'Go →', greet:'Hello! I am Saathi.',
+    idle:'Press the big <b>TALK 🎤</b> button and say a topic, like <b>“explain photosynthesis”</b> or <b>“water cycle”</b>.<br>I will explain it simply and draw it on the board for the whole class.',
+    cc:'Subtitles on — every word Saathi says appears here.', thinking:'Thinking…',
+    a11yT:'For everyone ♿', a11yS:'Set Saathi up for every child.', done:'Okay ✓' }
+};
+
+/* ============================================================
+   OFFLINE CONTENT BANK  (so the live URL works with no backend)
+   Each topic has all 3 language registers + an ALT text.
+   ============================================================ */
+const TOPICS = [
+ { keys:['photosynth','photo synth','paudhe khana','paudha khana','patti khana','प्रकाश','संश्लेषण','पौधे','खाना बनाते','leaf food','plant food','khana banate'],
+   emoji:'🌿', alt:{english:'A green leaf with a sun above and water drops below.',hinglish:'Hari patti, upar suraj, neeche paani ki boond.',hindi:'हरी पत्ती, ऊपर सूरज, नीचे पानी की बूँदें।'},
+   title:{english:'How plants make food',hinglish:'Paudhe khana kaise banate hain',hindi:'पौधे खाना कैसे बनाते हैं'},
+   speak:{english:"Plants make their own food! Their green leaf catches sunlight, drinks water from the roots, and breathes in air. It mixes all three to make food — like a tiny kitchen in every leaf.",
+          hinglish:"Paudhe apna khana khud banate hain! Hari patti sunlight pakadti hai, jadon se paani peeti hai, aur hawa leti hai. In teeno ko mila ke khana ban jaata hai — har patti ek chhoti kitchen hai!",
+          hindi:"पौधे अपना खाना खुद बनाते हैं! हरी पत्ती धूप पकड़ती है, जड़ों से पानी पीती है और हवा लेती है। इन तीनों को मिलाकर खाना बन जाता है — हर पत्ती एक छोटी रसोई है!"},
+   points:{english:['Green leaf catches sunlight ☀️','Roots drink water 💧','Leaf breathes air 🌬️','Food is ready 🍲'],
+           hinglish:['Hari patti sunlight pakadti hai ☀️','Jad paani peeti hai 💧','Patti hawa leti hai 🌬️','Khana taiyaar 🍲'],
+           hindi:['हरी पत्ती धूप पकड़ती है ☀️','जड़ पानी पीती है 💧','पत्ती हवा लेती है 🌬️','खाना तैयार 🍲']} },
+
+ { keys:['water cycle','jal chakra','jal chakr','जल चक्र','baarish kaise','badal','बादल','rain cycle','vapour','bhaap','भाप','paani upar'],
+   emoji:'🌧️', alt:{english:'Sun, a cloud, and rain falling into a river that goes back up.',hinglish:'Suraj, badal aur baarish jo nadi mein girti hai phir upar jaati hai.',hindi:'सूरज, बादल और बारिश जो नदी में गिरती है फिर ऊपर जाती है।'},
+   title:{english:'The water cycle',hinglish:'Jal chakra (water cycle)',hindi:'जल चक्र'},
+   speak:{english:"The sun heats water in rivers and ponds. The water becomes vapour and rises up. High up it gets cold and makes clouds. Clouds get heavy and rain falls down again. Round and round forever!",
+          hinglish:"Suraj nadi aur talab ka paani garam karta hai. Paani bhaap ban ke upar jaata hai. Upar thanda ho ke badal banta hai. Badal bhaari ho ke baarish girti hai. Phir wahi chakkar chalta rehta hai!",
+          hindi:"सूरज नदी और तालाब का पानी गरम करता है। पानी भाप बनकर ऊपर जाता है। ऊपर ठंडा होकर बादल बनता है। बादल भारी होकर बारिश गिरती है। फिर वही चक्र चलता रहता है!"},
+   points:{english:['Sun heats the water ☀️','Water rises as vapour ⬆️','Cold air makes clouds ☁️','Rain falls down 🌧️'],
+           hinglish:['Suraj paani garam karta hai ☀️','Paani bhaap ban ke upar ⬆️','Thand se badal bante hain ☁️','Baarish girti hai 🌧️'],
+           hindi:['सूरज पानी गरम करता है ☀️','पानी भाप बनकर ऊपर ⬆️','ठंड से बादल बनते हैं ☁️','बारिश गिरती है 🌧️']} },
+
+ { keys:['gravity','gurutva','गुरुत्व','neeche girta','niche girta','धरती खींचती','dharti kheech','falls down','aam neeche'],
+   emoji:'🍎', alt:{english:'A mango falling down towards the round Earth.',hinglish:'Ek aam dharti ki taraf neeche girta hua.',hindi:'एक आम धरती की तरफ नीचे गिरता हुआ।'},
+   title:{english:'Gravity — the pull of Earth',hinglish:'Gravity — dharti ka kheechna',hindi:'गुरुत्वाकर्षण — धरती का खिंचाव'},
+   speak:{english:"Throw a mango up — why does it come back down? Because the Earth pulls everything towards itself. This pull is called gravity. It keeps us, our houses, and even water on the ground.",
+          hinglish:"Aam upar phenko to neeche kyun aata hai? Kyunki dharti har cheez ko apni taraf kheechti hai. Is kheechne ko gravity kehte hain. Isi se hum, ghar aur paani zameen pe tikte hain.",
+          hindi:"आम ऊपर फेंको तो नीचे क्यों आता है? क्योंकि धरती हर चीज़ को अपनी तरफ खींचती है। इस खिंचाव को गुरुत्वाकर्षण कहते हैं। इसी से हम, घर और पानी ज़मीन पर टिके रहते हैं।"},
+   points:{english:['Earth pulls everything down ⬇️','We call this pull gravity 🪨','It holds us on the ground 🧍','Water stays in the pond 💧'],
+           hinglish:['Dharti har cheez ko kheechti hai ⬇️','Is kheechne ko gravity kehte 🪨','Isi se hum tike hain 🧍','Paani talab mein rukta hai 💧'],
+           hindi:['धरती हर चीज़ को खींचती है ⬇️','इस खिंचाव को गुरुत्वाकर्षण कहते 🪨','इसी से हम टिके हैं 🧍','पानी तालाब में रुकता है 💧']} },
+
+ { keys:['parts of plant','paudhe ke bhag','पौधे के भाग','jad tana patti','root stem leaf','phool patti'],
+   emoji:'🌱', alt:{english:'A plant showing roots, stem, leaf and flower.',hinglish:'Ek paudha jisme jad, tana, patti aur phool dikhe.',hindi:'एक पौधा जिसमें जड़, तना, पत्ती और फूल दिखें।'},
+   title:{english:'Parts of a plant',hinglish:'Paudhe ke bhag',hindi:'पौधे के भाग'},
+   speak:{english:"A plant has parts, just like you! The roots drink water under the soil. The stem stands tall and carries water up. Leaves make food. Flowers make seeds for new plants.",
+          hinglish:"Paudhe ke bhi parts hote hain, tumhari tarah! Jad mitti ke neeche paani peeti hai. Tana seedha khada rehta hai aur paani upar le jaata hai. Patti khana banati hai. Phool naye beej banate hain.",
+          hindi:"पौधे के भी भाग होते हैं, तुम्हारी तरह! जड़ मिट्टी के नीचे पानी पीती है। तना सीधा खड़ा रहता है और पानी ऊपर ले जाता है। पत्ती खाना बनाती है। फूल नए बीज बनाते हैं।"},
+   points:{english:['Roots drink water 🫚','Stem carries it up 🌿','Leaves make food 🍃','Flowers make seeds 🌸'],
+           hinglish:['Jad paani peeti hai 🫚','Tana upar le jaata hai 🌿','Patti khana banati hai 🍃','Phool beej banate hain 🌸'],
+           hindi:['जड़ पानी पीती है 🫚','तना ऊपर ले जाता है 🌿','पत्ती खाना बनाती है 🍃','फूल बीज बनाते हैं 🌸']} },
+
+ { keys:['solar system','saur mandal','सौरमंडल','grah','ग्रह','planet','sun planets','prithvi suraj'],
+   emoji:'🪐', alt:{english:'The Sun in the middle with planets going around it.',hinglish:'Beech mein suraj, uske around ghoomte planets.',hindi:'बीच में सूरज, उसके चारों ओर घूमते ग्रह।'},
+   title:{english:'Our solar system',hinglish:'Hamara saur mandal',hindi:'हमारा सौरमंडल'},
+   speak:{english:"The Sun is a giant star in the middle. Eight planets go around it in circles. Our Earth is one of them — the only one we know with water and life. The Moon goes around our Earth.",
+          hinglish:"Beech mein Sun ek bada star hai. Iske around aath planets ghoomte hain. Hamari Earth bhi ek hai — abhi tak sirf isi pe paani aur life hai. Moon hamari Earth ke around ghoomta hai.",
+          hindi:"बीच में सूरज एक बड़ा तारा है। इसके चारों ओर आठ ग्रह घूमते हैं। हमारी पृथ्वी भी एक है — अभी तक सिर्फ़ इसी पर पानी और जीवन है। चाँद हमारी पृथ्वी के चारों ओर घूमता है।"},
+   points:{english:['Sun is a big star ☀️','Eight planets circle it 🪐','Earth is our home 🌍','Moon circles Earth 🌙'],
+           hinglish:['Sun ek bada star hai ☀️','Aath planets ghoomte hain 🪐','Earth hamara ghar 🌍','Moon Earth ke around 🌙'],
+           hindi:['सूरज एक बड़ा तारा है ☀️','आठ ग्रह घूमते हैं 🪐','पृथ्वी हमारा घर 🌍','चाँद पृथ्वी के चारों ओर 🌙']} },
+
+ { keys:['multiply','multiplication','pahada','पहाड़ा','गुणा','guna','table of','do ka pahada','times'],
+   emoji:'✖️', alt:{english:'Three groups of two dots making six dots.',hinglish:'Do-do ke teen group, total chhe.',hindi:'दो-दो के तीन समूह, कुल छह।'},
+   title:{english:'What is multiplication?',hinglish:'Multiplication kya hai?',hindi:'गुणा क्या है?'},
+   speak:{english:"Multiplying means adding the same number many times. Two times three means three twos: 2 plus 2 plus 2 equals 6. It is just a fast way to add!",
+          hinglish:"Multiply matlab same number ko baar-baar jodna. Do guna teen matlab teen baar do: 2 + 2 + 2 = 6. Ye jaldi jodne ka tareeka hai!",
+          hindi:"गुणा मतलब एक ही संख्या को बार-बार जोड़ना। दो गुना तीन मतलब तीन बार दो: 2 + 2 + 2 = 6। यह जल्दी जोड़ने का तरीका है!"},
+   points:{english:['2 × 3 means three 2s ✌️','2 + 2 + 2 = 6 🟰','A fast way to add ⚡','Try 2 × 4 next! 🎯'],
+           hinglish:['2 × 3 matlab teen baar 2 ✌️','2 + 2 + 2 = 6 🟰','Jaldi jodne ka tareeka ⚡','Ab 2 × 4 try karo! 🎯'],
+           hindi:['2 × 3 मतलब तीन बार 2 ✌️','2 + 2 + 2 = 6 🟰','जल्दी जोड़ने का तरीका ⚡','अब 2 × 4 करो! 🎯']} }
+];
+
+/* ---------- Quiz bank ---------- */
+const QUIZZES = [
+ { keys:['water','jal','baarish','बारिश','vapour','bhaap','cloud'],
+   emoji:'🌧️',
+   q:{english:'When the sun heats water, what does it become?',hinglish:'Suraj se garam ho ke paani kya banta hai?',hindi:'सूरज से गरम होकर पानी क्या बनता है?'},
+   choices:{english:['Vapour (gas)','A stone','Ice'],hinglish:['Bhaap (gas)','Patthar','Baraf'],hindi:['भाप (गैस)','पत्थर','बर्फ़']},
+   ans:0, exp:{english:'Yes! Heat turns water into vapour that floats up.',hinglish:'Shabaash! Garmi se paani bhaap ban ke upar udta hai.',hindi:'शाबाश! गर्मी से पानी भाप बनकर ऊपर उड़ता है।'} },
+ { keys:['plant','paudh','पौध','leaf','patti','khana banata'],
+   emoji:'🌿',
+   q:{english:'Which part of a plant makes its food?',hinglish:'Paudhe ka khana kaun sa bhag banata hai?',hindi:'पौधे का खाना कौन सा भाग बनाता है?'},
+   choices:{english:['The leaf','The root','The flower'],hinglish:['Patti','Jad','Phool'],hindi:['पत्ती','जड़','फूल']},
+   ans:0, exp:{english:'Correct! Green leaves are the kitchen of the plant.',hinglish:'Sahi! Hari patti paudhe ki kitchen hai.',hindi:'सही! हरी पत्ती पौधे की रसोई है।'} },
+ { keys:['math','ganit','गणित','multiply','pahada','गुणा','number','jod'],
+   emoji:'✖️',
+   q:{english:'2 × 3 = ?',hinglish:'2 × 3 = ?',hindi:'2 × 3 = ?'},
+   choices:{english:['5','6','8'],hinglish:['5','6','8'],hindi:['5','6','8']},
+   ans:1, exp:{english:'Right! 2 + 2 + 2 = 6.',hinglish:'Bilkul! 2 + 2 + 2 = 6.',hindi:'बिलकुल! 2 + 2 + 2 = 6।'} }
+];
+
+/* popular options shown when Saathi is unsure (the clarification feature) */
+const POPULAR = [
+  {emoji:'🌧️', key:'water cycle', label:{english:'The water cycle',hinglish:'Water cycle',hindi:'जल चक्र'}},
+  {emoji:'🌿', key:'photosynthesis', label:{english:'How plants make food',hinglish:'Paudhe khana kaise banate',hindi:'पौधे खाना कैसे बनाते'}},
+  {emoji:'🍎', key:'gravity', label:{english:'Why things fall down',hinglish:'Cheez neeche kyun girti',hindi:'चीज़ नीचे क्यों गिरती'}},
+  {emoji:'🪐', key:'solar system', label:{english:'The solar system',hinglish:'Saur mandal',hindi:'सौरमंडल'}}
+];
+
+/* ============================================================
+   ELEMENTS
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const board=$('#board'), bEmoji=$('#bEmoji'), bTitle=$('#bTitle'), bBody=$('#bBody');
+const altText=$('#altText'), ccText=$('#ccText'), heard=$('#heard'), mascot=$('#mascot');
+const clarify=$('#clarify'), clarifyQ=$('#clarifyQ'), clarifyChips=$('#clarifyChips');
+const micBtn=$('#mic'), micLabel=$('#micLabel');
+
+/* ============================================================
+   LANGUAGE + UI WIRING
+   ============================================================ */
+function applyUIStrings(){
+  const t=UI[state.lang];
+  micLabel.textContent = state.listening ? t.listening : t.mic;
+  $('#describeLbl').textContent=t.describe; $('#repeatLbl').textContent=t.repeat;
+  $('#m1').textContent=t.m1; $('#m2').textContent=t.m2; $('#m3').textContent=t.m3;
+  $('#typeToggle').textContent=t.type; $('#typeInput').placeholder=t.typeph; $('#typeSend').textContent=t.send;
+  $('#hfLbl').textContent = state.lang==='hindi' ? 'हैंड्स-फ्री' : 'Hands-free';
+  $('#a11yTitle').textContent=t.a11yT; $('#a11ySub').textContent=t.a11yS; $('#sheetDone').textContent=t.done;
+  if(!state.current){
+    bTitle.textContent=t.greet;
+    const wake = state.lang==='english' ? '🎙️ Tip: with Hands-free on, just say <b>“Saathi, explain photosynthesis”</b> — no tapping.'
+              : state.lang==='hindi' ? '🎙️ टिप: हैंड्स-फ्री चालू हो तो बस बोलो <b>“साथी, प्रकाश संश्लेषण समझाओ”</b> — टैप करने की ज़रूरत नहीं।'
+              : '🎙️ Tip: Hands-free on ho to bas bolo <b>“Saathi, photosynthesis samjhao”</b> — tap karne ki zaroorat nahi.';
+    $('#idleHint').innerHTML=t.idle+'<br><br>'+wake;
+    ccText.textContent=t.cc;
+  }
+}
+document.querySelectorAll('.segment button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.segment button').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    state.lang=b.dataset.lang; applyUIStrings();
+    // rebuild the current content in the new language so caption + voice match
+    const p=state.current;
+    if(p){
+      if(p._topic) render(buildExplain(p._topic));
+      else if(p._quiz) render(buildQuiz(p._quiz));
+      else if(p.type==='clarify') render(buildClarify());
+    }
+  };
+});
+document.querySelectorAll('.modepill[data-mode]').forEach(b=>{
+  if(b.id==='demoConfused') return;
+  b.onclick=()=>{
+    document.querySelectorAll('.modepill[data-mode]').forEach(x=>{ if(x.id!=='demoConfused') x.setAttribute('aria-pressed','false');});
+    b.setAttribute('aria-pressed','true'); state.mode=b.dataset.mode;
+  };
+});
+
+/* ============================================================
+   TEXT-TO-SPEECH  (TTS)
+   ============================================================ */
+let voices=[];
+function loadVoices(){ voices=window.speechSynthesis?speechSynthesis.getVoices():[]; }
+if(window.speechSynthesis){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+
+/* Pick the most Indian-sounding voice for a script: 'hi' (Hindi) or 'en' (English).
+   Scores by: exact Indian locale > Google/natural Indian voices > any Hindi/Indian-English. */
+function pickVoice(script){
+  if(!voices.length) return null;
+  const wantHi = script==='hi';
+  const score = v=>{
+    const lang=(v.lang||'').toLowerCase(), name=(v.name||'').toLowerCase();
+    let s=0;
+    if(wantHi){
+      if(lang.startsWith('hi'))      s+=100;        // Hindi voice — fluent Devanagari
+      if(lang==='hi-in')             s+=20;
+      if(name.includes('hindi')||name.includes('हिन'))   s+=15;
+    }else{
+      if(lang==='en-in')             s+=100;        // Indian English
+      else if(lang.startsWith('en')) s+=40;
+      if(name.includes('india')||name.includes('swara')||name.includes('heera')||name.includes('ravi')||name.includes('prabhat')) s+=25;
+    }
+    if(name.includes('google'))      s+=12;         // Google voices sound most natural
+    if(name.includes('natural'))     s+=10;
+    return s;
+  };
+  return voices.slice().sort((a,b)=>score(b)-score(a))[0] || voices[0];
+}
+
+/* strip emoji & symbols so TTS doesn't read "fire" / "sun with face" etc. */
+function cleanForSpeech(t){
+  return (t||'')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\uFE0F]/gu,' ')
+    .replace(/\s+/g,' ').trim();
+}
+
+/* Speak a queue of {text, script} parts in order, in an Indian voice. */
+let speakQueue=[];
+function speakSequence(parts){
+  if(!window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  speakQueue = (parts||[]).filter(p=>p&&cleanForSpeech(p.text));
+  mascot.classList.add('speak');
+  // hands-free: stop hearing ourselves while we talk
+  if(typeof sessionOn!=='undefined' && sessionOn){ speakingNow=true; try{ recog && recog.stop(); }catch(e){} }
+  nextUtterance();
+}
+function nextUtterance(){
+  if(!speakQueue.length){
+    mascot.classList.remove('speak'); state.speaking=false;
+    // hands-free: resume listening once we've finished speaking
+    if(typeof sessionOn!=='undefined' && sessionOn && !manualStop){ speakingNow=false; setTimeout(()=>{ if(sessionOn&&!manualStop&&!speakingNow) micStart(); }, 250); }
+    else { speakingNow=false; }
+    return;
+  }
+  const part=speakQueue.shift();
+  const u=new SpeechSynthesisUtterance(cleanForSpeech(part.text));
+  const v=pickVoice(part.script||'hi');
+  if(v){ u.voice=v; u.lang=v.lang; } else { u.lang = part.script==='en'?'en-IN':'hi-IN'; }
+  u.rate = document.body.classList.contains('calm') ? 0.84 : 0.92;  // calm, clear, Indian pace
+  u.pitch = 1.04;
+  state.speaking=true;
+  u.onend=()=>nextUtterance();
+  u.onerror=()=>nextUtterance();
+  speechSynthesis.speak(u);
+}
+/* convenience single-line speak */
+function speak(text, script){ speakSequence([{text, script:script||(state.lang==='english'?'en':'hi')}]); }
+
+/* gentle chime (suppressed in calm mode) */
+function chime(ok=true){
+  if(document.body.classList.contains('calm')) return;
+  try{
+    const a=new (window.AudioContext||window.webkitAudioContext)();
+    const o=a.createOscillator(), g=a.createGain();
+    o.connect(g); g.connect(a.destination);
+    o.type='sine'; o.frequency.value=ok?660:300;
+    g.gain.setValueAtTime(0.0001,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.12,a.currentTime+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+0.4);
+    o.start(); o.stop(a.currentTime+0.42);
+  }catch(e){}
+}
+
+/* ============================================================
+   SPEECH-TO-TEXT  (STT)  — hands-free, with honest mic diagnosis
+   ============================================================ */
+const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+const isEmbedded = (()=>{ try{ return window.self!==window.top; }catch(e){ return true; } })();
+const isFile = location.protocol === 'file:';
+const isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent||'');
+let recog=null, listening=false, handsFree=true, sessionOn=false, manualStop=false, micReady=false, speakingNow=false;
+
+const HF = {
+  hinglish:{ allow:'Microphone allow karein…', listening:'Sun raha hoon…', on:'Hands-free ON — bas bolo: “Saathi, …”', off:'Hands-free OFF', chatter:'…(“Saathi …” bol kar poochho)' },
+  hindi:{ allow:'माइक्रोफ़ोन की अनुमति दें…', listening:'सुन रहा हूँ…', on:'हैंड्स-फ्री चालू — बस बोलो: “साथी, …”', off:'हैंड्स-फ्री बंद', chatter:'…(“साथी …” बोलकर पूछो)' },
+  english:{ allow:'Allow microphone…', listening:'Listening…', on:'Hands-free ON — just say “Saathi, …”', off:'Hands-free OFF', chatter:'…(say “Saathi …” to ask)' }
+};
+const MICHELP = {
+  blocked:{ english:"This preview window can't open the microphone. Use the artifact's “open in new tab” control, or host index.html on a website — then tap Allow once and it's fully hands-free.",
+            hindi:"यह प्रीव्यू विंडो माइक नहीं खोल सकती। आर्टिफ़ैक्ट को नए टैब में खोलें, या index.html को किसी वेबसाइट पर डालें — फिर एक बार अनुमति दें, उसके बाद पूरी तरह हैंड्स-फ्री।",
+            hinglish:"Yeh preview window mic nahi khol sakti. Artifact ko naye tab mein kholein, ya index.html ko website pe host karein — phir ek baar Allow karein, uske baad poori tarah hands-free." },
+  denied:{ english:"Allow the mic for this page, then press BOLO again. In Chrome/Edge: click the 🎤 icon at the left of the address bar → Allow. In Safari: Safari menu → Settings → Websites → Microphone.",
+           hindi:"इस पेज के लिए माइक की अनुमति दें, फिर बोलो दबाएँ। Chrome/Edge में: एड्रेस बार के बाईं ओर 🎤 आइकन दबाएँ → Allow। Safari में: Safari → Settings → Websites → Microphone।",
+           hinglish:"Is page ke liye mic allow karein, phir BOLO dabayein. Chrome/Edge mein: address bar ke left mein 🎤 icon dabayein → Allow. Safari mein: Safari → Settings → Websites → Microphone." },
+  file:{ english:"You opened Saathi from a file (file://) — browsers block the mic there, and there is no lock icon to click. Put index.html online (drag it onto app.netlify.com/drop) or run a local server, then open that https/localhost link in Chrome.",
+         hindi:"आपने साथी को फ़ाइल (file://) से खोला है — वहाँ ब्राउज़र माइक ब्लॉक करता है, और कोई लॉक आइकन नहीं होता। index.html को ऑनलाइन डालें (app.netlify.com/drop पर खींचें) या लोकल सर्वर चलाएँ, फिर वह https/localhost लिंक Chrome में खोलें।",
+         hinglish:"Aapne Saathi ko file (file://) se khola hai — wahan browser mic block karta hai, aur koi lock icon nahi hota. index.html ko online daalein (app.netlify.com/drop pe drag karein) ya local server chalayein, phir wo https/localhost link Chrome mein kholein." },
+  safari:{ english:"Safari's voice recognition is unreliable. For hands-free voice, please open Saathi in Google Chrome (or Edge) using an https link.",
+           hindi:"Safari की वॉइस पहचान भरोसेमंद नहीं है। हैंड्स-फ्री वॉइस के लिए साथी को Google Chrome (या Edge) में https लिंक से खोलें।",
+           hinglish:"Safari ki voice recognition reliable nahi hai. Hands-free voice ke liye Saathi ko Google Chrome (ya Edge) mein https link se kholein." },
+  nohttps:{ english:"Open Saathi over https or localhost to use the microphone.",
+            hindi:"माइक के लिए साथी को https या localhost पर खोलें।",
+            hinglish:"Mic ke liye Saathi ko https ya localhost pe kholein." },
+  noapi:{ english:"This browser has no voice support — try Chrome or Edge. You can type below for now.",
+          hindi:"इस ब्राउज़र में वॉइस सपोर्ट नहीं — Chrome या Edge आज़माएँ। अभी नीचे टाइप कर सकते हैं।",
+          hinglish:"Is browser mein voice support nahi — Chrome ya Edge try karein. Abhi neeche type kar sakte hain." },
+  nohardware:{ english:"No microphone found on this device.",
+               hindi:"इस डिवाइस पर माइक्रोफ़ोन नहीं मिला।",
+               hinglish:"Is device pe microphone nahi mila." }
+};
+
+if(SR){
+  recog=new SR(); recog.interimResults=true; recog.maxAlternatives=3;
+  recog.onresult=(e)=>{
+    let txt=''; for(let i=e.resultIndex;i<e.results.length;i++) txt+=e.results[i][0].transcript;
+    heard.textContent='“'+txt+'”';
+    if(!e.results[e.results.length-1].isFinal) return;
+    const n=normalize(txt);
+    if(handsFree){
+      const hasWake=/\bsaathi\b|साथी|साठी/.test(n);
+      const known = matchTopic(n)||matchQuiz(n)||QUIZ_WORDS.some(w=>n.includes(normalize(w)));
+      const wordCount = n.split(' ').filter(Boolean).length;
+      // respond to a real phrase (wake word, a known topic, or anything >=2 words); ignore stray one-word noise
+      if(hasWake || known || wordCount>=2){
+        const clean=txt.replace(/saathi/ig,'').replace(/साथी|साठी/g,'').replace(/^[\s,।]+/,'').trim();
+        heard.textContent='“'+(clean||txt)+'”';
+        handleInput(clean||txt);          // -> backend AI (if running) -> board + voice
+      } else {
+        heard.textContent='“'+txt+'” '+HF[state.lang].chatter;  // ignore single-word chatter, keep listening
+      }
+    } else {
+      stopListening(); handleInput(txt);
+    }
+  };
+  recog.onerror=(e)=>{
+    const err=e&&e.error;
+    if((err==='no-speech'||err==='aborted'||err==='network') && sessionOn && !manualStop) return; // onend will re-arm
+    if(err==='not-allowed'||err==='service-not-allowed'){ sessionOn=false; stopListening(); showMicHelp(isEmbedded?'blocked':'denied'); return; }
+    if(!sessionOn) stopListening();
+  };
+  recog.onend=()=>{
+    // hands-free: auto re-arm unless we're mid-speech or user stopped
+    if(sessionOn && !manualStop && !speakingNow){ micStart(); return; }
+    if(!sessionOn) stopListening();
+  };
+}
+
+/* Explicitly prime the mic so the browser shows its one-time prompt,
+   and so we can read the real reason for failure. */
+async function ensureMic(){
+  if(!window.isSecureContext) return 'nohttps';
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'noapi';
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    micReady=true; return 'ok';
+  }catch(e){
+    const nm=e&&e.name;
+    if(nm==='NotFoundError'||nm==='DevicesNotFoundError') return 'nohardware';
+    if(nm==='NotAllowedError'||nm==='SecurityError'||nm==='PermissionDeniedError') return isEmbedded?'blocked':'denied';
+    return isEmbedded?'blocked':'denied';
+  }
+}
+
+function showMicHelp(kind){
+  stopListening();
+  const m=(MICHELP[kind]||MICHELP.denied)[state.lang];
+  ccText.textContent='🎤 '+m;
+  // typing stays available as a SECONDARY fallback (not forced as the default)
+  $('#typeToggle').style.outline='3px solid var(--marigold)';
+  setTimeout(()=>{ $('#typeToggle').style.outline=''; }, 2600);
+  // surface a prominent fix banner for the cases the user must act on
+  const mf=$('#micfix');
+  if(kind==='blocked' || kind==='file' || kind==='safari' || kind==='nohttps'){
+    $('#micfixMsg').textContent = m;
+    $('#openWin').style.display = (kind==='blocked' && isEmbedded) ? '' : 'none';
+    mf.style.display='flex';
+  } else {
+    mf.style.display='none';
+  }
+}
+
+/* Best-effort: re-open the whole app in a top-level window, which is NOT bound by
+   the preview iframe's permission policy — so the mic prompt can appear there.
+   If popups are blocked too, we tell the user to download + host. */
+function openInOwnWindow(){
+  let w=null;
+  try{ w=window.open('', '_blank'); }catch(e){ w=null; }
+  if(!w){
+    $('#micfixMsg').textContent = state.lang==='english'
+      ? "The window couldn't open (popup blocked). Please download index.html and host it (e.g. drag it onto app.netlify.com/drop), then open that link."
+      : state.lang==='hindi'
+      ? "विंडो नहीं खुल सकी (पॉपअप ब्लॉक है)। कृपया index.html डाउनलोड करके होस्ट करें (जैसे app.netlify.com/drop पर खींचें), फिर वह लिंक खोलें।"
+      : "Window nahi khul saki (popup block hai). index.html download karke host karein (jaise app.netlify.com/drop pe drag karein), phir wo link kholein.";
+    return;
+  }
+  try{
+    w.document.open();
+    w.document.write('<!doctype html>'+document.documentElement.outerHTML);
+    w.document.close();
+    ccText.textContent = state.lang==='english' ? 'Opened in a new window — press BOLO there and tap Allow. 🎤'
+      : state.lang==='hindi' ? 'नई विंडो में खुल गया — वहाँ बोलो दबाएँ और अनुमति दें। 🎤'
+      : 'Nayi window mein khul gaya — wahan BOLO dabayein aur Allow karein. 🎤';
+  }catch(e){
+    $('#micfixMsg').textContent = state.lang==='english'
+      ? "Couldn't copy the app into the new window. Please download index.html and host it (app.netlify.com/drop)."
+      : "index.html download karke host karein (app.netlify.com/drop).";
+  }
+}
+
+function micStart(){ try{ recog.start(); }catch(e){} }
+
+async function startSession(){
+  if(!SR || !recog){ showMicHelp(isSafari?'safari':'noapi'); return; }
+  if(isFile){ showMicHelp('file'); return; }            // file:// can never get the mic
+  if(!micReady){
+    ccText.textContent='🎤 '+HF[state.lang].allow;
+    const r=await ensureMic();
+    if(r!=='ok'){ showMicHelp(isSafari && r==='denied' ? 'safari' : r); return; }
+  }
+  manualStop=false; sessionOn=handsFree; listening=true; state.listening=true;
+  $('#micfix').style.display='none';
+  recog.lang = state.lang==='english' ? 'en-IN' : 'hi-IN';
+  recog.continuous = handsFree;
+  micBtn.classList.add('listening'); micLabel.textContent=UI[state.lang].listening;
+  heard.textContent=''; ccText.textContent = handsFree ? HF[state.lang].on
+    : (state.lang==='english'?'Listening… say a topic.':state.lang==='hindi'?'सुन रहा हूँ… कोई विषय बोलो।':'Sun raha hoon… koi topic bolo.');
+  micStart();
+}
+function stopSession(){ manualStop=true; sessionOn=false; try{recog&&recog.stop();}catch(e){} stopListening(); }
+function stopListening(){
+  listening=false; state.listening=false; micBtn.classList.remove('listening');
+  micLabel.textContent=UI[state.lang].mic;
+}
+
+micBtn.onclick=()=>{
+  if(window.speechSynthesis){ try{ speechSynthesis.resume(); }catch(e){} } // unlock audio on gesture
+  if(listening||sessionOn) stopSession();
+  else startSession();
+};
+
+/* Hands-free (wake-word) toggle */
+$('#hfToggle').onclick=()=>{
+  handsFree=!handsFree;
+  $('#hfToggle').setAttribute('aria-pressed', handsFree);
+  if(sessionOn||listening) stopSession();   // restart cleanly under the new mode on next BOLO
+  ccText.textContent = handsFree ? HF[state.lang].on : HF[state.lang].off;
+};
+
+/* escape-to-own-window shortcut for sandbox-blocked mic */
+$('#openWin').onclick=openInOwnWindow;
+
+/* ============================================================
+   INPUT ROUTER
+   ============================================================ */
+function normalize(s){ return (s||'').toLowerCase().replace(/[।.,?!]/g,' ').replace(/\s+/g,' ').trim(); }
+const QUIZ_WORDS=['quiz','sawaal','सवाल','question','prashn','प्रश्न','test','imtihaan','poochho','पूछो'];
+
+function matchTopic(n){ return TOPICS.find(t=>t.keys.some(k=>n.includes(normalize(k)))); }
+function matchQuiz(n){ return QUIZZES.find(q=>q.keys.some(k=>n.includes(normalize(k)))); }
+
+async function handleInput(raw){
+  stopListening();
+  const n=normalize(raw);
+  if(!n){ return; }
+  thinking();
+
+  // Always try the backend AI first (mic/text -> /api/ask -> Claude). Falls back to the
+  // offline bank only if no backend/key is reachable, so it still responds either way.
+  const ai=await askAI(raw);
+  if(ai){ render(ai); return; }
+
+  // ---- offline routing ----
+  const wantsQuiz = state.mode==='quiz' || QUIZ_WORDS.some(w=>n.includes(normalize(w)));
+  if(wantsQuiz){
+    const q=matchQuiz(n);
+    if(q){ render(buildQuiz(q)); return; }
+    return render(buildClarify());   // unsure which quiz -> offer options
+  }
+  const topic=matchTopic(n);
+  if(topic){ render(buildExplain(topic)); return; }
+
+  // Saathi is not sure -> offer options (the clarification feature)
+  render(buildClarify());
+}
+
+/* ============================================================
+   PAYLOAD BUILDERS
+   ============================================================ */
+function buildExplain(t){
+  const L=state.lang;
+  const speakL = L==='hinglish' ? 'hindi' : L;   // speak Hindi in Hinglish mode → fluent pronunciation
+  const script = L==='english' ? 'en' : 'hi';
+  return { type:'explain', emoji:t.emoji, title:t.title[L],
+           spoken:t.speak[L], speakText:t.speak[speakL], script,
+           points:t.points[L], alt:t.alt[L], altSpeak:t.alt[speakL], _topic:t };
+}
+function buildQuiz(q){
+  const L=state.lang;
+  const speakL = L==='hinglish' ? 'hindi' : L;
+  const script = L==='english' ? 'en' : 'hi';
+  return { type:'quiz', emoji:q.emoji,
+           q:q.q[L], qSpeak:q.q[speakL],
+           choices:q.choices[L], choicesSpeak:q.choices[speakL],
+           ans:q.ans, exp:q.exp[L], expSpeak:q.exp[speakL], script,
+           alt:(L==='english'?'A quiz question with answer buttons.':L==='hindi'?'एक क्विज़ सवाल और जवाब के बटन।':'Ek quiz sawaal aur jawab ke buttons.'),
+           _quiz:q };
+}
+function buildClarify(opts){
+  const L=state.lang;
+  const question = L==='english' ? "Hmm, I didn't catch that. Did you mean…?"
+                 : L==='hindi'   ? "हम्म, मैं ठीक से समझ नहीं पाया। क्या आपका मतलब था…?"
+                 :                 "Hmm, main theek se samajh nahi paaya. Aapka matlab tha…?";
+  // spoken version: Hindi for both hindi & hinglish → fluent pronunciation
+  const questionSpeak = L==='english' ? question : "हम्म, मैं ठीक से समझ नहीं पाया। क्या आपका मतलब था…?";
+  const script = L==='english' ? 'en' : 'hi';
+  const options = (opts||POPULAR).map(o=>({emoji:o.emoji,label:o.label[L],key:o.key}));
+  return { type:'clarify', question, questionSpeak, script, options };
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function thinking(){
+  mascot.classList.add('think');
+  ccText.textContent=UI[state.lang].thinking;
+}
+function clearClarify(){ clarify.style.display='none'; }
+
+function render(p){
+  mascot.classList.remove('think');
+  state.current=p;
+  board.classList.remove('idle');
+
+  if(p.type==='clarify'){ return renderClarify(p); }
+  clearClarify();
+
+  bEmoji.textContent=p.emoji;
+
+  if(p.type==='explain'){
+    bTitle.textContent=p.title;
+    bBody.innerHTML='<ul class="points">'+p.points.map(x=>'<li>'+x+'</li>').join('')+'</ul>';
+    altText.textContent='🖼️ '+p.alt;
+    ccText.textContent=p.spoken;
+    // Hands-free: explain the idea, THEN automatically describe the picture aloud.
+    const picPrefix = p.script==='en' ? 'In the picture: ' : 'चित्र में: ';
+    speakSequence([
+      { text:p.speakText, script:p.script },
+      { text:picPrefix + (p.altSpeak||''), script:p.script }
+    ]);
+  }
+
+  if(p.type==='quiz'){
+    bTitle.textContent = state.lang==='english'?'Quiz time! 🎯':state.lang==='hindi'?'क्विज़ का समय! 🎯':'Quiz time! 🎯';
+    let html='<p class="quiz-q">'+p.q+'</p><div class="choices">';
+    p.choices.forEach((c,i)=>{ html+='<button class="choice" data-i="'+i+'"><span class="key">'+(i+1)+'</span><span>'+c+'</span></button>'; });
+    html+='</div>';
+    bBody.innerHTML=html;
+    altText.textContent='🖼️ '+p.alt;
+    ccText.textContent=p.q;
+    // Hands-free: read the question AND every option aloud (so a non-visual child can answer).
+    const nums = p.script==='en' ? ['one','two','three','four','five'] : ['एक','दो','तीन','चार','पाँच'];
+    const optWord = p.script==='en' ? 'The options are. ' : 'विकल्प हैं। ';
+    const sep = p.script==='en' ? '. ' : '। ';
+    const optLine = optWord + (p.choicesSpeak||p.choices).map((c,i)=> nums[i]+', '+cleanForSpeech(c)).join(sep);
+    speakSequence([{ text:p.qSpeak||p.q, script:p.script }, { text:optLine, script:p.script }]);
+
+    bBody.querySelectorAll('.choice').forEach(btn=>{
+      btn.onclick=()=>{
+        const i=+btn.dataset.i;
+        bBody.querySelectorAll('.choice').forEach(b=>b.style.pointerEvents='none');
+        if(i===p.ans){
+          btn.classList.add('correct'); chime(true);
+          ccText.textContent=p.exp; speak(p.expSpeak||p.exp, p.script);
+        } else {
+          btn.classList.add('wrong'); chime(false);
+          bBody.querySelectorAll('.choice')[p.ans].classList.add('correct');
+          const capPrefix = state.lang==='english'?'Good try! The green one is correct. '
+                          : state.lang==='hindi'?'अच्छी कोशिश! हरा वाला सही है। '
+                          : 'Achhi koshish! Hara wala sahi hai. ';
+          const sayPrefix = p.script==='en'?'Good try! The green one is correct. ':'अच्छी कोशिश! हरा वाला सही है। ';
+          ccText.textContent=capPrefix+p.exp;
+          speak(sayPrefix+(p.expSpeak||p.exp), p.script);
+        }
+      };
+    });
+  }
+}
+
+function renderClarify(p){
+  bEmoji.textContent='🤔';
+  bTitle.textContent = state.lang==='english'?'Let me help — pick one':state.lang==='hindi'?'मैं मदद करता हूँ — एक चुनो':'Main madad karta hoon — ek chuno';
+  bBody.innerHTML='<p class="idle-hint">'+ (state.lang==='english'?'Tap a picture below and I will explain it. 👇':state.lang==='hindi'?'नीचे किसी चित्र पर टैप करो, मैं समझा दूँगा। 👇':'Neeche kisi picture pe tap karo, main samjha dunga. 👇') +'</p>';
+  altText.textContent='';
+  ccText.textContent=p.question;
+  speak(p.questionSpeak||p.question, p.script||(state.lang==='english'?'en':'hi'));
+  clarify.style.display='block';
+  clarifyQ.textContent=p.question;
+  clarifyChips.innerHTML='';
+  p.options.forEach(o=>{
+    const b=document.createElement('button');
+    b.className='chip'; b.innerHTML='<span class="e">'+o.emoji+'</span> '+o.label;
+    b.onclick=()=>{ clearClarify(); handleInput(o.key); };
+    clarifyChips.appendChild(b);
+  });
+}
+
+/* describe-picture (audio for visuals) + repeat — both in a fluent Indian voice */
+$('#describeBtn').onclick=()=>{
+  const p=state.current; if(!p) return;
+  const txt = p.altSpeak || p.alt; if(txt) speak(txt, p.script||'hi');
+};
+$('#repeatBtn').onclick=()=>{
+  const p=state.current; if(!p) return;
+  if(p.type==='quiz') speak(p.qSpeak||p.q, p.script);
+  else if(p.type==='clarify') speak(p.questionSpeak||p.question, p.script);
+  else speak(p.speakText||p.spoken||'', p.script);
+};
+
+/* confused-kid demo button */
+$('#demoConfused').onclick=()=>{
+  const garbled = state.lang==='english'?'um the… water… up thing… cloud… i forgot'
+                : state.lang==='hindi'?'वो… पानी… ऊपर वाला… बादल… नहीं पता'
+                : 'wo… paani… upar wala… cloud… nahi pata';
+  heard.textContent='“'+garbled+'”';
+  thinking();
+  setTimeout(()=>{
+    // specifically offer water-related guesses for this garbled speech
+    const opts=[
+      {emoji:'🌧️',key:'water cycle',label:{english:'How does rain happen?',hinglish:'Baarish kaise hoti hai?',hindi:'बारिश कैसे होती है?'}},
+      {emoji:'💧',key:'water cycle',label:{english:'How does water go up?',hinglish:'Paani upar kaise jaata hai?',hindi:'पानी ऊपर कैसे जाता है?'}},
+      {emoji:'☁️',key:'water cycle',label:{english:'What are clouds?',hinglish:'Badal kya hote hain?',hindi:'बादल क्या होते हैं?'}}
+    ];
+    render(buildClarify(opts));
+  }, 700);
+};
+
+/* ============================================================
+   TYPE FALLBACK
+   ============================================================ */
+function toggleType(force){
+  const w=$('#typewrap'); const show = force!==undefined?force:!w.classList.contains('show');
+  w.classList.toggle('show',show); if(show) $('#typeInput').focus();
+}
+$('#typeToggle').onclick=()=>toggleType();
+$('#typeSend').onclick=()=>{ const v=$('#typeInput').value; if(v.trim()){ handleInput(v); $('#typeInput').value=''; } };
+$('#typeInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ $('#typeSend').click(); }});
+
+/* ============================================================
+   ACCESSIBILITY SHEET
+   ============================================================ */
+$('#a11yBtn').onclick=()=>$('#sheetBack').classList.add('show');
+$('#sheetDone').onclick=()=>$('#sheetBack').classList.remove('show');
+$('#sheetBack').onclick=(e)=>{ if(e.target.id==='sheetBack') $('#sheetBack').classList.remove('show'); };
+function bindToggle(id, cls, onChange){
+  const el=$('#'+id);
+  el.onclick=()=>{
+    const on = el.getAttribute('aria-pressed')!=='true';
+    el.setAttribute('aria-pressed', on);
+    document.body.classList.toggle(cls, on);
+    if(onChange) onChange(on);
+  };
+}
+bindToggle('tgCalm','calm');
+bindToggle('tgAlt','alton');
+bindToggle('tgBig','bigtext');
+$('#tgSubs').onclick=()=>{
+  const el=$('#tgSubs'); const on=el.getAttribute('aria-pressed')!=='true';
+  el.setAttribute('aria-pressed',on); document.body.classList.toggle('subsoff', !on);
+};
+
+/* ============================================================
+   LIVE AI  (Anthropic API — works inside Claude.ai artifacts)
+   Gracefully falls back to the offline bank when unreachable.
+   ============================================================ */
+const SYSTEM_PROMPT = `You are Saathi, a warm, patient AI classroom companion for children (grades 1-8) in a Haryana government school. One teacher teaches 40+ mixed-level kids on a smart board. Kids speak Hinglish and often speak in broken, incomplete, or mispronounced ways. Some have special learning needs.
+
+RULES:
+- Reply with ONLY a single JSON object. No markdown, no extra words.
+- Use extremely simple words a 7-year-old knows. Short sentences. No jargon.
+- Match the requested language register exactly:
+  "hinglish" = Hindi+English mix written in Latin script, the way Indian kids actually speak.
+  "hindi" = simple Hindi in Devanagari.
+  "english" = simple Indian-context English.
+- Always be warm and encouraging. Never make a child feel wrong.
+- Use everyday Indian village examples (mango tree, tubewell, chapati, the sun, bullock).
+- BROKEN LANGUAGE: try hard to understand the child's intent. If you are reasonably sure, just answer. If you are genuinely unsure what they mean, set "needs_clarification": true and give 2-4 friendly guesses in "options" (each a tiny emoji + short label), phrased as a kind question in "clarification_question". Let the child choose.
+- For explanations give: a 2-4 line "spoken_text", a short "board_title", 2-4 very short "board_points" (each may end with one emoji), ONE representative "visual_emoji", and a one-line "alt_text" describing the picture for a blind child (this WILL be read aloud automatically, so make it a clear, plain description).
+- For a quiz: fill "quiz" with one simple question, 3 short choices, the correct "answer_index", and a one-line happy "explanation".
+- FLUENT PRONUNCIATION: a Hindi text-to-speech voice reads the output. When the register is "hinglish", ALSO provide "spoken_devanagari": a natural Devanagari (Hindi-script) rendering of spoken_text, and "alt_devanagari": the alt_text in Devanagari, so the voice pronounces Hindi words fluently. For "hindi" leave these equal to the Devanagari fields; for "english" set them to "".
+
+JSON schema:
+{"mode":"explain|quiz|clarify","needs_clarification":false,"clarification_question":"","options":[{"emoji":"","label":""}],"spoken_text":"","spoken_devanagari":"","board_title":"","board_points":[],"visual_emoji":"","alt_text":"","alt_devanagari":"","quiz":null}`;
+
+/* The backend endpoint that holds your API key (see server.js).
+   Override by setting window.SAATHI_API before this script runs. */
+const AI_ENDPOINT = (window.SAATHI_API || '/api/ask');
+
+function buildUserMsg(userText){
+  return `language: ${state.lang}\nmode the teacher selected: ${state.mode}\nchild/teacher said: "${userText}"\n\nReturn the JSON now.`;
+}
+function parseModelJSON(txt){
+  return aiToPayload(JSON.parse(String(txt).replace(/```json|```/g,'').trim()));
+}
+
+async function askAI(userText){
+  // 1) Preferred: our own backend proxy (holds the key safely). Works on localhost/server or serverless.
+  try{
+    const res=await fetch(AI_ENDPOINT,{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ language:state.lang, mode:state.mode, text:userText }) });
+    if(res.ok){ return parseModelJSON(await res.text()); }
+  }catch(e){ /* no backend here — try direct below */ }
+
+  // 2) Fallback: direct Anthropic call (works inside the Claude.ai artifact where the key is injected).
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{ method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system:SYSTEM_PROMPT,
+        messages:[{role:'user',content:buildUserMsg(userText)}] }) });
+    if(res.ok){
+      const data=await res.json();
+      const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+      return parseModelJSON(txt);
+    }
+  }catch(e){ /* fall through to offline bank */ }
+  return null;
+}
+function aiToPayload(j){
+  const script = state.lang==='english' ? 'en' : 'hi';
+  if(j.needs_clarification && Array.isArray(j.options) && j.options.length){
+    return { type:'clarify', script,
+             question:j.clarification_question||UI[state.lang].thinking,
+             questionSpeak:j.clarification_question||UI[state.lang].thinking,
+             options:j.options.map(o=>({ emoji:o.emoji||'❓', label:o.label||'', key:o.label||'' })) };
+  }
+  if(j.mode==='quiz' && j.quiz){
+    return { type:'quiz', emoji:j.visual_emoji||'🎯', script,
+             q:j.quiz.question, qSpeak:(state.lang==='hinglish'&&j.spoken_devanagari? j.quiz.question : j.quiz.question),
+             choices:j.quiz.choices, choicesSpeak:j.quiz.choices,
+             ans:j.quiz.answer_index||0, exp:j.quiz.explanation||'', expSpeak:j.quiz.explanation||'',
+             alt:j.alt_text||'', altSpeak:(j.alt_devanagari||j.alt_text||'') };
+  }
+  return { type:'explain', emoji:j.visual_emoji||'🌟', title:j.board_title||'', script,
+           spoken:j.spoken_text||'',
+           speakText:(state.lang==='hinglish' ? (j.spoken_devanagari||j.spoken_text) : j.spoken_text)||'',
+           points:j.board_points||[],
+           alt:j.alt_text||'', altSpeak:(state.lang==='hinglish' ? (j.alt_devanagari||j.alt_text) : j.alt_text)||'' };
+}
+
+/* probe whether live AI is reachable; otherwise show Demo mode */
+(async function initAI(){
+  const s=$('#status'), lbl=$('#statusLbl');
+  // 1) our backend?
+  try{
+    const r=await fetch('/api/health');
+    if(r.ok){ const j=await r.json(); if(j && j.ok){ state.aiLive=true; s.classList.remove('demo'); lbl.textContent='Live AI (backend) ready'; return; } }
+  }catch(e){}
+  // 2) direct Anthropic (Claude.ai artifact only)?
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8,messages:[{role:'user',content:'ping'}]})});
+    if(r.ok){ state.aiLive=true; s.classList.remove('demo'); lbl.textContent='Live AI ready'; return; }
+  }catch(e){}
+  state.aiLive=false; s.classList.add('demo'); lbl.textContent='Demo mode — start the backend (server.js) for live AI';
+})();
+
+/* ============================================================
+   INIT
+   ============================================================ */
+applyUIStrings();
+</script>
+</body>
+</html>
